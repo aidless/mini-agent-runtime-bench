@@ -63,3 +63,27 @@
 - 未迁移（诚实边界）：Docker/多卡执行沙箱未实现（本机无该条件）；
   TaskWeaver 的插件执行链未接入（仅策略验证层）；安执是必要不充分，
   不据此声称任何能力或完成率。
+
+---
+
+## P3-HARDEN-C2：真实容器沙箱 + 插件执行链（补首轮「未迁移」项，2026-09-12）
+
+- **重要更正**：首轮把「Docker/多卡沙箱」记为「本机无条件」是**错误的假设**。
+  新增 `tools/capability_probe.py` 实测后推翻：Docker 可用（容器实测起停成功）、
+  `nvidia-smi` 列出 1 卡、容器级隔离可用。教训：能力边界必须探测，不能凭印象。
+- 新增（基础设施，零 bench 语义）：
+  - `tools/capability_probe.py`：Docker/GPU/沙箱能力探测（命令缺失/超时/报错一律 unavailable）。
+  - `tools/docker_sandbox.py`：真实容器执行器（加固参数 + 超时 fail-closed）。
+  - `tools/plugin_chain.py`：插件执行链（每步先过安执校验；被拒即中止且不执行该步）。
+- 实测（cwd=mini-agent-runtime-bench，`python3`）：
+  - `python3 tools/check_runtime_gates.py` → exit 0，R1-R7 全过：
+    R6 容器隔离五项（加固参数齐备 / 非 root uid!=0 / 只读挂载拒写 / 默认断网 / 超时即杀）；
+    R7 插件链三项（被拒即中止且该步未执行 / 放行步骤在真实容器内执行成功 / 非空性）。
+  - `python3 tools/check_gates.py` → exit 0（A1 期望集含 21 文件，无漂移；A3-honesty 通过）。
+  - 能力探测实测：`docker=可用`、`gpu=可用`、`sandbox=可用`。
+- 本轮发现并固化的两个非显然坑：
+  1. 工作目录必须落在策略 `sandbox` 根内，否则在校验层即被拒（表现为「容器没启动」）；
+  2. 挂载目录必须可被沙箱用户遍历（`mkdtemp` 默认 0700），否则容器内读取静默
+     `Permission denied`。两者均已写入门禁断言。
+- 诚实边界（未变）：真实 LLM 调用仍未接入（RankGPT 排序增益未复现）；
+  容器沙箱为单容器隔离，非多租户强隔离，不声称生产级安全。

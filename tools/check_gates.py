@@ -33,6 +33,10 @@ EXPECTED = {
     "tools/agent_scoring.py",       # 三分/选人/记忆块（确定性纯函数）
     "tools/check_runtime_gates.py", # 上述三者的 fail-closed 门（含非空性反证）
     "docs/p3-runtime-gates.md",     # 运行门说明（无杜撰数字）
+    # P3-HARDEN 二轮：真实容器沙箱 + 插件执行链（补首轮「未迁移」项）
+    "tools/docker_sandbox.py",      # 真实容器执行器（加固参数 + 超时 fail-closed）
+    "tools/plugin_chain.py",        # 插件执行链（每步先过安执校验）
+    "tools/capability_probe.py",    # Docker/GPU/沙箱 能力探测（把假设变成事实）
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"

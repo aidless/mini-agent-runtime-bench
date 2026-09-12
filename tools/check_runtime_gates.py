@@ -21,6 +21,8 @@ sys.path.insert(0, HERE)
 from agent_scoring import (  # noqa: E402
     MemoryBlock, rate, score_three_dim, select_agents,
 )
+import docker_sandbox as ds  # noqa: E402
+import plugin_chain as pc  # noqa: E402
 from call_guard import parse_call  # noqa: E402
 from sandbox_validator import (  # noqa: E402
     default_policy, load_golden, validate_call,
@@ -167,6 +169,99 @@ def r5_nonvacuity(golden):
     return ok
 
 
+def r6_sandbox_isolation():
+    """真实容器沙箱：加固项齐备 + 三项隔离实测（只读/断网/非特权）。
+
+    环境不可用时记为 SKIP（不伪装成 PASS，也不记 FAIL）。
+    """
+    if not ds.sandbox_available():
+        print("  [R6] 容器沙箱不可用 → SKIP（如实跳过，不计 PASS/FAIL）")
+        return True
+
+    argv = ds.build_argv("true")
+    need = {"--network": "none", "--read-only": None, "--cap-drop": "ALL",
+            "--security-opt": "no-new-privileges", "--tmpfs": None,
+            "--memory": None, "--pids-limit": None, "--user": None}
+    missing = [k for k in need if k not in argv]
+    pts = [("加固参数齐备", not missing, not missing)]
+
+    r = ds.run_in_sandbox("echo INSIDE_OK; id -u")
+    uid_ok = r["ok"] and "INSIDE_OK" in r["stdout"] and "0" != r["stdout"].splitlines()[-1].strip()
+    pts.append(("容器内可执行且非 root(uid!=0)", uid_ok, uid_ok))
+
+    r = ds.run_in_sandbox("echo x > /work/evil 2>/dev/null && echo WROTE || echo RO_BLOCKED")
+    ro_ok = "RO_BLOCKED" in r["stdout"]
+    pts.append(("只读挂载拒绝写入", ro_ok, ro_ok))
+
+    r = ds.run_in_sandbox("wget -q -O- http://example.com >/dev/null 2>&1 "
+                          "&& echo NET_UP || echo NET_BLOCKED")
+    net_ok = "NET_BLOCKED" in r["stdout"]
+    pts.append(("默认断网（外联不可达）", net_ok, net_ok))
+
+    r = ds.run_in_sandbox("sleep 30", timeout=3)
+    to_ok = r["timed_out"] and not r["ok"]
+    pts.append(("超时即杀且 ok=False（fail-closed）", to_ok, to_ok))
+
+    ok = all(p[2] for p in pts)
+    print(f"  [R6] 容器沙箱隔离实测  {'PASS' if ok else 'FAIL'}")
+    for label, val, good in pts:
+        print(f"       {'ok ' if good else 'BAD'} {label} = {val}"
+              + (f"（缺: {missing}）" if label == '加固参数齐备' and missing else ""))
+    return ok
+
+
+def r7_plugin_chain():
+    """插件链：被拒步骤**不执行**、整链中止；放行步骤在真实沙箱内可读文件。"""
+    if not ds.sandbox_available():
+        print("  [R7] 容器沙箱不可用 → SKIP")
+        return True
+    import tempfile
+
+    pts = []
+    # 1) 链在首个被拒步骤中止，且该步 executed=False
+    steps = [{"tool": "read_file", "args": {"path": "sandbox/a.txt"}},
+             {"tool": "write_file", "args": {"path": "sandbox/b.txt", "data": "x"}},
+             {"tool": "read_file", "args": {"path": "sandbox/c.txt"}}]
+    res = pc.execute_chain(steps)          # 默认 stub 执行器
+    stopped_ok = (res["completed"] is False and res["stopped_at"] == 1
+                  and res["denied_rule"] == "R-READONLY"
+                  and res["trace"][1]["executed"] is False
+                  and sum(1 for t in res["trace"] if t["executed"]) == 1)
+    pts.append(("被拒即中止且该步未执行", stopped_ok, stopped_ok))
+
+    # 2) 全放行的链应在真实沙箱里读到文件内容
+    with tempfile.TemporaryDirectory() as td:
+        sub = os.path.join(td, "sandbox")
+        os.makedirs(sub, exist_ok=True)
+        with open(os.path.join(sub, "hello.txt"), "w", encoding="utf-8") as f:
+            f.write("SANDBOX_READ_OK\n")
+        # 关键一：路径必须落在策略的 sandbox 根内，否则在校验层即被拒（R-OUTSIDE）
+        # 关键二：挂载目录必须能被沙箱用户(nobody, uid 65534)遍历，否则
+        #         mkdtemp 默认的 0700 会让容器内 cat 静默 Permission denied。
+        os.chmod(td, 0o755)
+        os.chmod(sub, 0o755)
+        os.chmod(os.path.join(sub, "hello.txt"), 0o644)
+        ch = pc.execute_chain(
+            [{"tool": "read_file", "args": {"path": "sandbox/hello.txt"}}],
+            executor=lambda s: pc.docker_executor(s, workdir=td))
+        out = (ch["results"][0].get("stdout") or "") if ch["results"] else ""
+        real_ok = ch["completed"] and "SANDBOX_READ_OK" in out
+        pts.append(("放行步骤在真实容器内执行成功", real_ok, real_ok))
+        if not real_ok:
+            print(f"       调试: denied={ch['denied_rule']} results={ch['results']}")
+
+    # 3) 非空性：把只读步骤改成被禁工具，链必须不再完成
+    neg = pc.execute_chain([{"tool": "delete_file", "args": {"path": "hello.txt"}}])
+    neg_ok = neg["completed"] is False
+    pts.append(("非空性：违禁步骤使链失败", neg_ok, neg_ok))
+
+    ok = all(p[2] for p in pts)
+    print(f"  [R7] 插件链门控 + 真实执行  {'PASS' if ok else 'FAIL'}")
+    for label, val, good in pts:
+        print(f"       {'ok ' if good else 'BAD'} {label} = {val}")
+    return ok
+
+
 def main():
     golden = load_golden(GOLDEN)
     print("C 线运行时门（P3-HARDEN）")
@@ -176,6 +271,8 @@ def main():
         ("R3 零崩溃", r3_fuzz()),
         ("R4 评分正确", r4_scoring()),
         ("R5 非空性", r5_nonvacuity(golden)),
+        ("R6 容器隔离", r6_sandbox_isolation()),
+        ("R7 插件链门控", r7_plugin_chain()),
     ]
     print()
     failed = [name for name, ok in results if not ok]
