@@ -26,6 +26,13 @@ EXPECTED = {
     "results/flip_rate_empty.csv", "results/README.md",
     "tools/check_gates.py",  # this gate itself (infrastructure, zero bench code)
     "PHASE_LOG.md",  # phase gate log (process record, zero bench code)
+    # P3-HARDEN runtime gates (infrastructure, zero bench code; no bench numbers)
+    "tools/sandbox_validator.py",   # 安执：策略校验器
+    "tools/golden_attacks.json",    # 安执 golden 集（危险/合法调用，纯数据）
+    "tools/call_guard.py",          # 解析守卫（畸形输入零崩溃）
+    "tools/agent_scoring.py",       # 三分/选人/记忆块（确定性纯函数）
+    "tools/check_runtime_gates.py", # 上述三者的 fail-closed 门（含非空性反证）
+    "docs/p3-runtime-gates.md",     # 运行门说明（无杜撰数字）
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"

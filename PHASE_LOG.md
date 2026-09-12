@@ -36,3 +36,30 @@
 - 产出物：仅追加本 `## P3-CLOSE` 段到 `PHASE_LOG.md`（EXPECTED 集内文件，无新增文件，无文件集漂移）。
 - 失败+纠正：0 次纠正。门禁一次跑通；`python` 裸命令未用（按要求只用 `python3`）；`tools/check_gates.py` EXPECTED 未改。
 - 未动/约束遵守：零实现代码（by design，空仓即特性）；未编造数字（诚实性门禁通过）；未创建 `FINAL_ACCEPTANCE.md`（控制器裁决：新文件会触发 A1 漂移）；未运行 `git push`、未创建 remotes；未触碰 `gsm8k-self-evolve`、`rag_min_demo`；未修改 `tools/check_gates.py`；本地提交为止。
+
+## P3-HARDEN-C1：C 线运行时安全门（2026-09-12，本地 commit，绝不 push）
+
+- 授权：用户全权授权（P3 加固）；沿用 C 线「空仓诚实 + 零杜撰数字」纪律。
+- 新增（基础设施，均零 bench 语义）：
+  - `tools/sandbox_validator.py`：安执策略校验器（TaskWeaver 安执迁移）。
+  - `tools/golden_attacks.json`：安执 golden 集（危险 + 合法调用，纯数据）。
+  - `tools/call_guard.py`：函数调用解析守卫（Gorilla 迁移 + 上游未防护边补强）。
+  - `tools/agent_scoring.py`：API-Bank 三分 + DyLAN 选人 + MemGPT 记忆块（确定性纯函数）。
+  - `tools/check_runtime_gates.py`：R1-R5 fail-closed 门（含非空性反证）。
+  - `docs/p3-runtime-gates.md`：门说明（无杜撰数字，A3-honesty 通过）。
+- 实测（cwd=mini-agent-runtime-bench，`python3`）：
+  - `python3 tools/check_runtime_gates.py` → exit 0：
+    R1 拦截 22/22 危险调用（命中期望规则）；R2 放行 6/6 合法调用（零误拦）；
+    R3 畸形语料 27 条零崩溃、零结构异常；R4 三分/选人/记忆块断言全过；
+    R5 非空性反证通过（弱化策略后泄漏数 1 与 4，均 > 0 → 门非恒真）。
+  - `python3 tools/check_gates.py` → exit 0：A1 18 文件无漂移；A2 四段齐；
+    A3 零耦合/无绝对路径/csv 仅表头；A3-header 契约符合；A3-honesty 无杜撰数字。
+- 本轮 1 处缺陷发现与修正（门自己抓到的）：
+  - `select_agents` 原先把「调用次数不足」的智能体按 0 分参与排序 → 仍可能入选。
+    修正为**证据不足不入选**（不是 0 分混入）。R4 断言先 FAIL 后修复转 PASS，
+    证明该门具备真实鉴别力（非恒真）。
+- 迁移边界：未建远端；未运行 `git push`；未触碰 `gsm8k-self-evolve`、`rag_min_demo`；
+  `results/flip_rate_empty.csv` 仍仅表头（空仓契约不变）。
+- 未迁移（诚实边界）：Docker/多卡执行沙箱未实现（本机无该条件）；
+  TaskWeaver 的插件执行链未接入（仅策略验证层）；安执是必要不充分，
+  不据此声称任何能力或完成率。
