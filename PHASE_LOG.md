@@ -87,3 +87,65 @@
      `Permission denied`。两者均已写入门禁断言。
 - 诚实边界（未变）：真实 LLM 调用仍未接入（RankGPT 排序增益未复现）；
   容器沙箱为单容器隔离，非多租户强隔离，不声称生产级安全。
+
+---
+
+## M2-RUNTIME-LOOP：W2 契约可执行雏形（2026-10-11）
+
+- 动机：M2 原本的目标是"补第一个真 bench"。逐条读 `docs/W2-runtime.md` 后
+  发现契约的验收标准本身可以**先被满足一半**——三接口、四必填字段、
+  AG-W2-2 有界、AG-W2-4 确定性重放都是可判定的，且不需要任何 bench 数字。
+  于是先把"契约可执行"做出来，bench 部分按契约前提是否冻结来决定动不动。
+- 新增（基础设施，零 bench 语义）：
+  - `tools/runtime_loop.py`（约 `allow-number`：200 行，stdlib only）：
+    `RuntimeLoop.reset/step/done` 三接口 + 八字段轨迹 + `replay()` 重放入口
+    + `--selftest` 四项非空性反证（确定性 / 完备性 / 有界性 / reset 一次性）。
+  - `docs/m2-runtime-loop.md`：M2 说明，含"抵达了契约哪一条 / 没到哪一条"。
+- 实测（cwd=mini-agent-runtime-bench，`python3`）：
+  - `python3 tools/runtime_loop.py` → 正常产出轨迹，
+    `allow-number`：verdict=OK steps=2 digest=2c04b4c5428d。
+  - `python3 tools/runtime_loop.py --selftest` → 四项全 PASS
+    （缺字段时错误信息点名 `['latency_log']`；`max_steps=1` 时第 2 步中止）。
+  - `python3 tools/check_gates.py` → exit 0，A1-A3 八项全 PASS
+    （A1 EXPECTED 由 23 文件增至 25 文件，新增两项已入白名单）。
+  - `python3 tools/check_runtime_gates.py` → exit 0，R1-R7 全过。
+- **没有做的事（重要，防止误读）**：
+  1. **没有落任何 `trace_id` 数据行**。AG-W3-2 要求覆盖扰动矩阵全部格点，
+     而格点清单仍是 `TBD`；AG-W3-3 裁判独立性标准仍是 `TBD`。
+     在两项前提冻结前落数 = 自己违反反作弊条款。
+     故 `results/flip_rate_empty.csv` 保持仅表头，本仓仍是 pre-W1 空仓。
+  2. **没有声称任何 bench 数字**。loop 的 verdict 是"被检快照是否被改动"的
+     自洽性判定，与任务完成率、检索质量无关。
+  3. **执行未托管给容器**。R6 已证明真实容器隔离可用，但 loop 只做只读观测；
+     把 loop 接到 `docker_sandbox.py` 是下一步。
+- 教训：把"补 bench"拆成"契约可执行"与"bench 落数"两步后，第二步自己喊停——
+  因为停下来比继续更需要理由，而这个理由（反作弊前提未冻结）是契约写明的。
+
+## M3-RUNTIME-RUNS：8 个手写动作序列的真实轨迹（2026-10-11）
+
+- 动机：用户要求「多做一些真正加分的项目」，判定标准 = **陌生人 clone 后能否
+  不联网、不买 key 复现出数字**。本机 LLM API key 全 unset（`docs/m3-plan.md`
+  弹药表），所以任何需要别处推理的"agent 行为"都做不了；能做的是
+  **把运行时契约跑成真实轨迹**，并如实说明它不是 bench。
+- 新增：`tools/w2_runs.py`、`results/w2_runs.jsonl`、`docs/m3-runtime-runs.md`、
+  `docs/m3-plan.md`。另修 `tools/check_gates.py` 两处（见下）。
+- 实测（`python3 tools/w2_runs.py`）：
+  - 8 runs → verdict OK 5 / CONTRACT_ABORT 3，violations 4（T04/T05/T07 策略拒绝，
+    T08 `max_steps=1` 契约中止）。8 个 run 的快照 digest 均为 `469e5e59f80e`。
+  - `python3 tools/check_gates.py` → exit 0，A1-A3 八项全 PASS（A1 由 25 增至 29 文件）。
+  - `python3 tools/check_runtime_gates.py` → exit 0，R1-R7 全过。
+- **口径纠错（本轮最重要的一条）**：第一版把策略层拒绝（DANGEROUS_TOOL / NOT_JSON）
+  写进了 runtime 的 `tool_calls`，看起来 T04 也有完整的"被拒轨迹"。错在
+  **轨迹契约 = "实际发生的事"**：runtime 没执行的动作塞进它的 `tool_calls`，
+  会把"试图调用过 rm -rf"变成"调用过 rm -rf 且被记录"——审计含义完全不同。
+  修正后策略拒绝只进 `rec["violations"]`，`disclosure.log_semantics` 写死该语义。
+- **修 `check_gates.py` 的 A3-honesty 误报**：`HONESTY_RES` 的 `\b\d+\.\d+\b`
+  把 `sentence_transformers 6.1.0` 这类版本号当成"带小数点的编造结果"。
+  加 `VERSION_RE = \b\d+\.\d+(?:\.\d+)+\b` 在扫描前剥离（要求至少两个小数段，
+  单段小数仍会命中），并把 `docs/m3-plan.md` 里两处裸小数改成文字 + `allow-number`。
+  这是修门禁而非放水：真正的"0.633 / 5/10"仍然会被拦。
+- **没有做的事**：①无任务定义，`OK` 不代表任务成功；②无裁判，
+  `results/flip_rate_empty.csv` 仍仅表头；③8 个 run 的执行未托管给容器
+  （R6 容器隔离单独证明）。
+- 教训：**"拒绝"有三层来源**（序列层策略 / 契约层中止 / 日志不完备拒产），
+  混在一张表里报告就是误导。这一层的账必须在写代码前分清，不是写完再解释。

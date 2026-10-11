@@ -37,6 +37,17 @@ EXPECTED = {
     "tools/docker_sandbox.py",      # 真实容器执行器（加固参数 + 超时 fail-closed）
     "tools/plugin_chain.py",        # 插件执行链（每步先过安执校验）
     "tools/capability_probe.py",    # Docker/GPU/沙箱 能力探测（把假设变成事实）
+    # P4-NOISE-FLOOR judge 判分金标门（接线基础设施；未取证时 SKIP）
+    "tools/check_judge_gold_gate.py",
+    "docs/p4-noise-floor-gate.md",  # 噪声下限门说明（无杜撰数字）
+    # W2 运行时最小闭环雏形（M2：契约可执行、契约可判定、空表仍诚实）
+    "tools/runtime_loop.py",        # reset/step/done + 八字段轨迹 + 确定性重放
+    "docs/m2-runtime-loop.md",      # M2 说明（数字均带 allow-number）
+    # M3-C：8 个手写动作序列的真实轨迹（无 LLM 被调用；非 agent benchmark）
+    "tools/w2_runs.py",             # runtime_loop + call_guard 序列层拒绝策略
+    "results/w2_runs.jsonl",        # 8 条轨迹（verdict/evidence 自洽，非任务完成率）
+    "docs/m3-runtime-runs.md",      # M3-C 说明（口径与"不许叫 benchmark"写死）
+    "docs/m3-plan.md",              # M3 选型依据（环境弹药实测表 + 三项候选）
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"
@@ -47,7 +58,6 @@ CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence
 PROSE_SCOPE = ["README.md"] + sorted(
     str(p.relative_to(REPO)) for p in (REPO / "docs").glob("*.md")
 ) + ["results/README.md", "results/flip_rate_empty.csv"]
-
 COUPLING_TOKENS = ("evolve", "gsm8k", "rag_demo")
 ABS_PATH_TOKENS = ("/home/", "/root/", "/data1", "Administrator")
 # A prohibition line names the forbidden thing without depending on it.
@@ -63,6 +73,10 @@ HONESTY_RES = (
     re.compile(r"(?i)(accuracy|flip[\s_-]?rate|latency|score|f1|auc|"
                r"p[\s_-]?value|准确率|翻转率|延迟|得分)\s*[:=]\s*\d"),
 )
+# A version number is not a result. Strip one from the line before scanning
+# ("sentence_transformers 6.1.0" must not read as a decimal-as-result claim);
+# the version itself stays in the prose.
+VERSION_RE = re.compile(r"\b\d+\.\d+(?:\.\d+)+\b")
 HONESTY_EXEMPT = ("TBD", "allow-number")
 
 
@@ -160,8 +174,9 @@ def main():
                 (REPO / rel).read_text(encoding="utf-8").splitlines(), 1):
             if any(m in ln for m in HONESTY_EXEMPT):
                 continue
+            scan = VERSION_RE.sub(" ", ln)  # version strings are not results
             for rx in HONESTY_RES:
-                if rx.search(ln):
+                if rx.search(scan):
                     fail(f"A3-honesty invented number in {rel}:{i}: "
                          f"{ln.strip()[:80]}")
     print("PASS [A3-honesty] no invented numbers in README/docs/results")
