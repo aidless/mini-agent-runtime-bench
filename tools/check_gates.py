@@ -48,6 +48,9 @@ EXPECTED = {
     "results/w2_runs.jsonl",        # 8 条轨迹（verdict/evidence 自洽，非任务完成率）
     "docs/m3-runtime-runs.md",      # M3-C 说明（口径与"不许叫 benchmark"写死）
     "docs/m3-plan.md",              # M3 选型依据（环境弹药实测表 + 三项候选）
+    # CI 与可复现环境（基础设施，无 bench 语义）
+    "requirements.txt",             # 本仓的可选/开发依赖声明
+    ".github/workflows/static-checks.yml",  # CI 入口
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"
