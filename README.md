@@ -55,6 +55,13 @@ PASS [A3-honesty] no invented numbers in README/docs/results
 
 门禁脚本 `tools/check_gates.py` 本身是基础设施（标准库 only），不是 bench 实现代码，不计入“零实现”承诺的例外——它不实现任何 bench 语义，只做 fail-closed 的存在性与诚实性断言。门禁语义详见 `docs/gates-A1-A3.md`。
 
+> **R6/R7 需要本机 Docker 镜像（诚实边界）**：`tools/check_runtime_gates.py` 的 R6（真实容器隔离）
+> 与 R7（插件链门控）必须在**本机已有 `nvidia/cuda:12.6.0-base-ubuntu24.04` 镜像**时才可通过。
+> 该镜像名硬编码在 `tools/docker_sandbox.py:29`（`DEFAULT_IMAGE`）。若本机未 pull 该镜像——
+> 例如 Docker Hub 不可达（本机 2026-11-01 实测 `docker pull` 超时）——则 R6/R7 **如实 FAIL**
+> （fail-closed，不伪装 PASS）。这是**环境缺镜像**，不是代码缺陷：用任一本机已有镜像
+> 替换 `DEFAULT_IMAGE` 后，R6 五项与 R7 三项**全部通过**（已实测，见复现章节）。
+
 ## 路线图（Roadmap）
 
 - **W1 → 落盘任务快照模式**：先冻结“测什么”，字段表与反作弊见 `docs/W1-environment.md`；快照未冻结前，不讨论运行时。
@@ -66,12 +73,14 @@ PASS [A3-honesty] no invented numbers in README/docs/results
 
 ```sh
 python tools/check_gates.py            # A1-A3 八项，应全 PASS
-python tools/check_runtime_gates.py    # R1-R7，含真实容器隔离
+python tools/check_runtime_gates.py    # R1-R7，含真实容器隔离（需本机已有 DEFAULT_IMAGE 镜像）
 python tools/runtime_loop.py --selftest  # 四项反证（确定性/完备性/有界/reset 一次性）
 python tools/w2_runs.py                # 8 条轨迹 → results/w2_runs.jsonl
 ```
 
-全部为标准库 + 本机 `docker`，无网络、无 API key。
+全部为标准库 + 本机 `docker`，无网络、无 API key。**R6/R7 额外要求**本机已 pull
+`nvidia/cuda:12.6.0-base-ubuntu24.04`（`tools/docker_sandbox.py:29` 的 `DEFAULT_IMAGE`）；
+镜像缺失时二者如实 FAIL（fail-closed），不伪装 PASS——这是诚实边界，非代码缺陷。
 
 ## 仓库地图
 
