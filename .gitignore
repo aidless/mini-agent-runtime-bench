@@ -22,3 +22,6 @@ models/
 *.bak
 
 *.bak*
+
+# pytest cache (build artifact, not a repo file)
+.pytest_cache/

@@ -48,6 +48,12 @@ EXPECTED = {
     "results/w2_runs.jsonl",        # 8 条轨迹（verdict/evidence 自洽，非任务完成率）
     "docs/m3-runtime-runs.md",      # M3-C 说明（口径与"不许叫 benchmark"写死）
     "docs/m3-plan.md",              # M3 选型依据（环境弹药实测表 + 三项候选）
+    # A 级加固：离线测试 + CI + 打包 + 预注册（基础设施与规格，零 bench 语义）
+    "tests/test_runtime_loop.py",   # runtime_loop 契约/RED-GREEN 离线测试
+    "tests/test_call_guard.py",     # call_guard 畸形输入零崩溃测试
+    "pyproject.toml",               # pytest 配置（testpaths=tests, pythonpath=tools）
+    ".github/workflows/ci.yml",     # CI：pytest + A1-A3 门 + selftest
+    "PREREG.md",                    # 预注册规格（H1-H3 假设/成功标准/边界）
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"

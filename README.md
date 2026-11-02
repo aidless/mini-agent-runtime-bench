@@ -4,6 +4,21 @@
 
 状态（2026-10-11）：**规约仓 + 可执行基础设施雏形**。三支柱规约与 `A1–A3` / `R1–R7` 门禁已经落成并通过；**W2 契约已可执行、已能产出真实自洽轨迹**（M2/M3）。但这里的"轨迹"是运行时行为的自洽性判定，**不是 bench 数字**：`results/flip_rate_empty.csv` 保持仅表头，任务完成率、翻转率分子分母仍然 `TBD`。零 bench 语义依然是特性，不是缺失。
 
+## 可复算结论（真实数字，无杜撰）
+
+以下均为**本仓库真实落盘**的可复算结果（命令见「怎么复现」；`w2_runs.jsonl`
+为 8 条手写动作序列的真实轨迹，非 bench 结果）：
+
+- **8 runs** 落盘于 `results/w2_runs.jsonl`（含 3 条被拒绝/中止路径；`w2_runs.py` 生成）。
+- **4 PASS** — `runtime_loop.py --selftest` 四项反证（确定性/完备性/有界/reset 一次性）。
+- **8 PASS** — `check_gates.py` A1–A3 八项结构/诚实性/耦合断言全部通过。
+- **12 tests passed** — `tests/` 下 pytest 套件（`test_runtime_loop.py` 6 项 +
+  `test_call_guard.py` 6 项，全部离线、无网络、无 API key）。
+
+> 这些数字**不是** agent 跑分或任务完成率：本仓是规约仓 + 基础设施，**零 bench 语义**
+> 仍是特性（见「显式非目标」）。任何未来 bench 数字落地前必须满足「空仓契约」三项
+> （`TBD` / `trace_id: null` / `evidence: none`）。
+
 ## 30 秒看清进度
 
 | 支柱 | 状态 | 说明 |
