@@ -82,6 +82,41 @@ python tools/w2_runs.py                # 8 条轨迹 → results/w2_runs.jsonl
 `nvidia/cuda:12.6.0-base-ubuntu24.04`（`tools/docker_sandbox.py:29` 的 `DEFAULT_IMAGE`）；
 镜像缺失时二者如实 FAIL（fail-closed），不伪装 PASS——这是诚实边界，非代码缺陷。
 
+## 快速开始
+
+```sh
+# 1. 克隆仓库
+git clone https://github.com/aidless/mini-agent-runtime-bench.git
+cd mini-agent-runtime-bench
+
+# 2. 跑门禁（A1–A3 八项，应全 PASS；无需任何安装）
+python tools/check_gates.py
+
+# 3. 跑运行时门禁（R1–R7；R6/R7 需本机已有 DEFAULT_IMAGE 镜像，见诚实边界）
+python tools/check_runtime_gates.py
+
+# 4. 验证 W2 运行时契约（四项反证）
+python tools/runtime_loop.py --selftest
+```
+
+三步即可复现全部门禁结论，无需网络、无需 API key。
+
+## 安装
+
+本仓库**不需要安装任何第三方包**——门禁与运行时雏形全部为标准库
+（`tools/check_gates.py`、`tools/runtime_loop.py`、`tools/w2_runs.py` 等），
+唯一外部依赖是本机 `docker`（仅 R6/R7 需要，且需已有
+`nvidia/cuda:12.6.0-base-ubuntu24.04` 镜像）。
+
+若要在本地跑 `tests/` 下的 pytest 套件，可安装开发依赖：
+
+```sh
+python -m pip install -e ".[dev]"   # 仅 pytest；其余门禁零依赖
+```
+
+注意：**安装可选、非必需**。本仓库的诚实定位是「规约仓 + 可执行基础设施雏形」，
+门禁与轨迹复现不依赖任何安装步骤。
+
 ## 仓库地图
 
 | 路径 | 性质 | 说明 |
