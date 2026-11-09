@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/aidless/mini-agent-runtime-bench/actions/workflows/static-checks.yml/badge.svg)](https://github.com/aidless/mini-agent-runtime-bench/actions/workflows/static-checks.yml)
 
+> **English TL;DR**: A spec-first repository defining machine-checkable contracts for mini-agent benchmarking's three pillars — environment snapshots, a runtime loop, and flip-rate experience metrics — enforced by A1–A3 and R1–R7 gates. Reproduce with `python tools/check_gates.py`, `python tools/check_runtime_gates.py`, and `python tools/runtime_loop.py --selftest` (stdlib plus local Docker, no network). It deliberately contains no bench implementation: no scores, no rankings, and empty result tables that stand as honest zero-evidence declarations.
+
 > 愿景（一句话）：为 mini-agent 的“环境—运行时—经验”三层提供一份**先于任何实现、可独立评审、可机器校验**的空仓规约，让未来的每一次跑分都能被复算、被证伪、被追溯。
 
 状态（2026-10-11）：**规约仓 + 可执行基础设施雏形**。三支柱规约与 `A1–A3` / `R1–R7` 门禁已经落成并通过；**W2 契约已可执行、已能产出真实自洽轨迹**（M2/M3）。但这里的"轨迹"是运行时行为的自洽性判定，**不是 bench 数字**：`results/flip_rate_empty.csv` 保持仅表头，任务完成率、翻转率分子分母仍然 `TBD`。零 bench 语义依然是特性，不是缺失。
