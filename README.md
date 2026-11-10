@@ -25,6 +25,29 @@
 - **W2 运行时（`docs/W2-runtime.md`）**：声明最小闭环接口契约（reset → step → done）与轨迹日志模式。契约本身仍以文档为准；**实现雏形见 `tools/runtime_loop.py` 与 `docs/m2-runtime-loop.md`**，任何未来实现都必须逐条满足其中的不变量与反作弊条款，否则门禁判定其轨迹无效。
 - **W3 经验（`docs/W3-experience.md`）**：定义翻转率（flip-rate）——同一轨迹在“扰动矩阵 × 阶段切换 × 裁判重判”下重放，结论发生翻转的比例。定义先行、数据空缺：`results/flip_rate_empty.csv` 当前仅表头，这是诚实的零证据声明，而不是零结果。
 
+三支柱与两套门禁的真实关系（据 `tools/` 与 `docs/` 现状绘制）：
+
+```mermaid
+flowchart LR
+    subgraph W1["支柱 W1 · 环境（规约）"]
+        SNAP["任务快照只读格式<br/>COPY 冻结落盘、不可变<br/>snapshot_id / digest 已实现"]
+    end
+    subgraph W2["支柱 W2 · 运行时（可执行）"]
+        LOOP["tools/runtime_loop.py<br/>reset → step → done 三接口"]
+        TRACE["八字段轨迹，JSONL 落盘<br/>results/w2_runs.jsonl<br/>含被拒/中止路径"]
+    end
+    subgraph W3["支柱 W3 · 经验（空）"]
+        FLIP["翻转率 flip-rate 定义<br/>results/flip_rate_empty.csv<br/>仅表头 = 零证据声明"]
+    end
+    G1["门禁 A1–A3<br/>tools/check_gates.py<br/>结构漂移 / 空仓诚实性 / 零耦合"]
+    G2["门禁 R1–R7<br/>tools/check_runtime_gates.py<br/>危险调用拦截 / 确定性重放 /<br/>真实容器隔离 / 插件链中止"]
+    W1 -->|"让『测的是同一道题』可被检查"| W2
+    W2 -->|"轨迹供扰动重放（未来）"| W3
+    G1 -.->|机器校验| W1
+    G1 -.-> W3
+    G2 -.->|机器校验| W2
+```
+
 ## 显式非目标（Non-goals）
 
 - 不做任何 bench 实现代码（agent、环境、裁判一律不实现）。
