@@ -1,5 +1,9 @@
 # mini-agent-runtime-bench
 
+[![CI](https://github.com/aidless/mini-agent-runtime-bench/actions/workflows/static-checks.yml/badge.svg)](https://github.com/aidless/mini-agent-runtime-bench/actions/workflows/static-checks.yml)
+
+> **English TL;DR**: A spec-first repository defining machine-checkable contracts for mini-agent benchmarking's three pillars — environment snapshots, a runtime loop, and flip-rate experience metrics — enforced by A1–A3 and R1–R7 gates. Reproduce with `python tools/check_gates.py`, `python tools/check_runtime_gates.py`, and `python tools/runtime_loop.py --selftest` (stdlib plus local Docker, no network). It deliberately contains no bench implementation: no scores, no rankings, and empty result tables that stand as honest zero-evidence declarations.
+
 > 愿景（一句话）：为 mini-agent 的“环境—运行时—经验”三层提供一份**先于任何实现、可独立评审、可机器校验**的空仓规约，让未来的每一次跑分都能被复算、被证伪、被追溯。
 
 状态（2026-10-11）：**规约仓 + 可执行基础设施雏形**。三支柱规约与 `A1–A3` / `R1–R7` 门禁已经落成并通过；**W2 契约已可执行、已能产出真实自洽轨迹**（M2/M3）。但这里的"轨迹"是运行时行为的自洽性判定，**不是 bench 数字**：`results/flip_rate_empty.csv` 保持仅表头，任务完成率、翻转率分子分母仍然 `TBD`。零 bench 语义依然是特性，不是缺失。
@@ -35,6 +39,29 @@
 - **W1 环境（`docs/W1-environment.md`）**：定义任务快照的只读格式——任务文本与参考答案以 COPY 方式冻结落盘，落盘后不可变。W1 不做任何实时取数，不依赖任何外部 A 线实现；它的全部职责是让“测的是同一道题”这件事可被检查。
 - **W2 运行时（`docs/W2-runtime.md`）**：声明最小闭环接口契约（reset → step → done）与轨迹日志模式。契约本身仍以文档为准；**实现雏形见 `tools/runtime_loop.py` 与 `docs/m2-runtime-loop.md`**，任何未来实现都必须逐条满足其中的不变量与反作弊条款，否则门禁判定其轨迹无效。
 - **W3 经验（`docs/W3-experience.md`）**：定义翻转率（flip-rate）——同一轨迹在“扰动矩阵 × 阶段切换 × 裁判重判”下重放，结论发生翻转的比例。定义先行、数据空缺：`results/flip_rate_empty.csv` 当前仅表头，这是诚实的零证据声明，而不是零结果。
+
+三支柱与两套门禁的真实关系（据 `tools/` 与 `docs/` 现状绘制）：
+
+```mermaid
+flowchart LR
+    subgraph W1["支柱 W1 · 环境（规约）"]
+        SNAP["任务快照只读格式<br/>COPY 冻结落盘、不可变<br/>snapshot_id / digest 已实现"]
+    end
+    subgraph W2["支柱 W2 · 运行时（可执行）"]
+        LOOP["tools/runtime_loop.py<br/>reset → step → done 三接口"]
+        TRACE["八字段轨迹，JSONL 落盘<br/>results/w2_runs.jsonl<br/>含被拒/中止路径"]
+    end
+    subgraph W3["支柱 W3 · 经验（空）"]
+        FLIP["翻转率 flip-rate 定义<br/>results/flip_rate_empty.csv<br/>仅表头 = 零证据声明"]
+    end
+    G1["门禁 A1–A3<br/>tools/check_gates.py<br/>结构漂移 / 空仓诚实性 / 零耦合"]
+    G2["门禁 R1–R7<br/>tools/check_runtime_gates.py<br/>危险调用拦截 / 确定性重放 /<br/>真实容器隔离 / 插件链中止"]
+    W1 -->|"让『测的是同一道题』可被检查"| W2
+    W2 -->|"轨迹供扰动重放（未来）"| W3
+    G1 -.->|机器校验| W1
+    G1 -.-> W3
+    G2 -.->|机器校验| W2
+```
 
 ## 显式非目标（Non-goals）
 

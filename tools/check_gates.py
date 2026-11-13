@@ -15,6 +15,7 @@ This script is infrastructure (assertions only, stdlib only). It implements
 zero bench semantics and is therefore not bench implementation code.
 """
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -54,6 +55,16 @@ EXPECTED = {
     "pyproject.toml",               # pytest 配置（testpaths=tests, pythonpath=tools）
     ".github/workflows/ci.yml",     # CI：pytest + A1-A3 门 + selftest
     "PREREG.md",                    # 预注册规格（H1-H3 假设/成功标准/边界）
+    # CI 与可复现环境（基础设施，无 bench 语义）
+    "requirements.txt",             # 本仓的可选/开发依赖声明
+    ".github/workflows/static-checks.yml",  # CI 入口
+    # OSSF gap-fix 批次（远端已跟踪；2026-11-13 补进 EXPECTED——原表漏列，门在远端树上本自红）
+    ".github/dependabot.yml",           # 依赖自动升级
+    ".github/workflows/packaging.yml",  # 打包构建
+    ".github/workflows/pr-checks.yml",  # PR 预检
+    ".github/workflows/publish.yml",    # 发布流水线
+    ".github/workflows/sast.yml",       # 静态安全扫描
+    "SECURITY.md",                      # 安全策略声明
 }
 
 CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence_path,notes"
@@ -92,8 +103,12 @@ def fail(msg):
 
 
 def main():
-    actual = {str(p.relative_to(REPO)) for p in REPO.rglob("*") if p.is_file()}
-    actual = {a for a in actual if ".git/" not in a and "__pycache__" not in a}
+    # 底物取 git 跟踪集，不取 rglob：rglob 会把本机 .pytest_cache/ 与本地
+    # 生成的 Makefile 当"多余文件"，那是工作树噪声，不是仓库结构。
+    # 判"仓库结构有没有漂移"的底物只能是它提交了哪些文件。
+    tracked = subprocess.run(["git", "ls-files"], cwd=REPO,
+                             capture_output=True, text=True, check=True).stdout.split()
+    actual = set(tracked)
     if actual != EXPECTED:
         fail(f"A1 file set drift: extra={sorted(actual - EXPECTED)} "
              f"missing={sorted(EXPECTED - actual)}")
