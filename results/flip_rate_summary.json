@@ -1,0 +1,27 @@
+{
+  "definition": "flip means replay verdict != baseline verdict; one repeat; exact string match; scripted policies execute spec and do not read task text; not an LLM agent",
+  "judge": "exact_string_match",
+  "llm_called": false,
+  "policies": [
+    {
+      "flips": 0,
+      "policy": "correct",
+      "replays": 12,
+      "stable_verdict": "PASS"
+    },
+    {
+      "flips": 0,
+      "policy": "seed_perturbed",
+      "replays": 12,
+      "stable_verdict": "FAIL"
+    },
+    {
+      "flips": 12,
+      "policy": "flaky",
+      "replays": 12,
+      "stable_verdict": "mixed"
+    }
+  ],
+  "task_count": 12,
+  "tasks_sha256": "6ce611b21e33b52e23467221f4a3ba0658e804d8ab1d653c2d7441fe637fd35c"
+}

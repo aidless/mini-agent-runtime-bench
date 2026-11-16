@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mini-agent-runtime-bench"
 version = "0.1.0"
-description = "Spec-first runtime/experience contract repo for mini-agent; zero bench semantics is a feature."
+description = "Scripted-policy flip rate on a tiny frozen task set, plus runtime gates. Not an LLM-agent benchmark."
 readme = "README.md"
 requires-python = ">=3.10"
 

@@ -2,7 +2,7 @@
 
 本页说明 C 线在 P3 加固轮新增的**运行时安全门**。它们与 `check_gates.py` 的
 A1–A3 门同属**基础设施**（只做断言，不含 bench 语义），因此不产生、也不声称
-任何 bench 数字。空仓契约（`results/flip_rate_empty.csv` 只有表头）保持不变。
+任何智能体能力数字。空表哨兵（`results/flip_rate_empty.csv` 只有表头）保持不变。脚本策略翻转率是另一份文件，不由这组运行时门产出。
 
 ## 为什么有这些门
 
@@ -25,11 +25,13 @@ C 线的非目标是「把智能体能力吹大」，而是「在真实执行前
 ## 用法
 
 ```
-python3 tools/check_runtime_gates.py      # R1–R7，fail-closed
+python3 tools/check_runtime_gates.py      # R1–R5 必跑；R6 与 R7 的容器步骤可 SKIP
 python3 tools/sandbox_validator.py        # 单独跑安执 golden 集
 python3 tools/capability_probe.py         # 探测 Docker / GPU / 容器隔离是否可用
 python3 tools/check_gates.py              # A1–A3（结构 / 文档 / 隔离与诚实）
 ```
+
+容器步骤的离线规则：守护进程不在，或 `DEFAULT_IMAGE` 不在本地，就打印 `SKIP` 和原因，不拉取镜像。`SKIP` 不是 `PASS`。`REQUIRE_DOCKER=1` 时跳过改为失败。`make check` 使用这条规则，因此没有该镜像的环境仍能复算 README 里的翻转率。
 
 ## 真实容器沙箱（第二轮补充）
 

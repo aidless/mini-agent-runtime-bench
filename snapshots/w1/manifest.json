@@ -1,0 +1,23 @@
+{
+  "algorithm": "sha256",
+  "copy_frozen": true,
+  "created_at": "2026-11-16T00:00:00Z",
+  "per_task_sha256": {
+    "t01": "8c95e01b8f53a1d64ea4bd1d4e4ff6d99d38693fdaf204436c91e35e8349c9b2",
+    "t02": "bbe958b742a70fe488287d123bab8769517a2de14dda9512e6af15b82227872e",
+    "t03": "8b3fcc60f375e9738346ca55b3d76ec32dea8b879ec763a40315e9b904f6a80d",
+    "t04": "89fe12efad8ea2511834213ba275a56dc817ffacd48b5d99e59a950a0300803e",
+    "t05": "522a5985aa278ecccd907fbe906f7c1d3aaa6e915ac3b82220383cbe5326ee5d",
+    "t06": "b054e1fdcc0de8c32c78d4b5a57a0bcadbcc15c499913c6f881084a47cef6961",
+    "t07": "618c6ff10fc1ace6fc788b01b170073184a0f3fbbeedec2a0144e45b0ddc3291",
+    "t08": "a511cf3f8907eb0fff55302afce858a49f244a3951811977127260493d92d359",
+    "t09": "55433a22f6e326afa32614120b820994335b07d71153d3a6471d0f55e500f18d",
+    "t10": "44095ece9e50c1ba77a2961c361d28a0458e18ed05fbe5ff833765bd5ef291fb",
+    "t11": "a5579eb109bf80b12857d9b32b149bc76f65275294046f8f6d7cc6b1386467cb",
+    "t12": "b405f143ffa065f95fe01f3a83037a669f9cc9565a7740cae91a393c1b527316"
+  },
+  "source_ref": "hand-authored in this repository; not copied from an external benchmark",
+  "task_count": 12,
+  "tasks_file": "snapshots/w1/tasks.jsonl",
+  "tasks_sha256": "6ce611b21e33b52e23467221f4a3ba0658e804d8ab1d653c2d7441fe637fd35c"
+}

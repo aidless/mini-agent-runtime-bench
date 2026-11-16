@@ -6,10 +6,13 @@ A2 docs: W1/W2/W3 + placeholder spec non-empty; README declares TBD/empty;
     W1/W2/W3 are independently reviewable (schema + anti-gaming + acceptance).
 A3 isolation & honesty: no unallowlisted evolve/gsm8k/rag_demo references;
     no import of A-line in code; no absolute parent paths in prose;
-    flip_rate_empty.csv holds header only (zero data rows = zero invented
-    numbers) with byte-exact header; no invented numeric claims
-    (percentages, sample sizes, metric assignments, decimals-as-results)
-    in README/docs/results outside TBD/allow-number lines.
+    flip_rate_empty.csv holds header only (zero data rows = zero evidence,
+    not a measured zero) with byte-exact header. results/flip_rate.csv may
+    hold rows only when every row has trace ids and an evidence file, and
+    the README measured block matches a fresh recomputation. No invented
+    numeric claims (percentages, sample sizes, metric assignments,
+    decimals-as-results) in README/docs/results outside TBD/allow-number
+    lines and outside that measured block.
 
 This script is infrastructure (assertions only, stdlib only). It implements
 zero bench semantics and is therefore not bench implementation code.
@@ -21,10 +24,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 EXPECTED = {
-    "LICENSE", "README.md", ".gitignore",
+    "LICENSE", "README.md", ".gitignore", ".editorconfig", ".gitattributes",
+    "Makefile", "FAILURE_MODES.md",
     "docs/gates-A1-A3.md", "docs/resume-placeholder-spec.md",
     "docs/W1-environment.md", "docs/W2-runtime.md", "docs/W3-experience.md",
     "results/flip_rate_empty.csv", "results/README.md",
+    "results/flip_rate.csv",              # scripted-policy numerators/denominators
+    "results/flip_rate_summary.json",     # same counts, recomputed
+    "results/scripted_traces.jsonl",      # baseline + replay traces for those rows
+    "snapshots/w1/tasks.jsonl",           # COPY-frozen hand-authored tasks
+    "snapshots/w1/manifest.json",         # sha256 of the frozen copy
     "tools/check_gates.py",  # this gate itself (infrastructure, zero bench code)
     "PHASE_LOG.md",  # phase gate log (process record, zero bench code)
     # P3-HARDEN runtime gates (infrastructure, zero bench code; no bench numbers)
@@ -46,12 +55,16 @@ EXPECTED = {
     "docs/m2-runtime-loop.md",      # M2 说明（数字均带 allow-number）
     # M3-C：8 个手写动作序列的真实轨迹（无 LLM 被调用；非 agent benchmark）
     "tools/w2_runs.py",             # runtime_loop + call_guard 序列层拒绝策略
+    "tools/scripted_policies.py",   # 三个脚本策略（不读题面、不调用 LLM）
+    "tools/compute_flip_rate.py",   # 重算翻转率并在漂移时失败
+    "tools/run_offline_tests.py",   # 标准库测试运行器（make check 不需要 pytest）
     "results/w2_runs.jsonl",        # 8 条轨迹（verdict/evidence 自洽，非任务完成率）
     "docs/m3-runtime-runs.md",      # M3-C 说明（口径与"不许叫 benchmark"写死）
     "docs/m3-plan.md",              # M3 选型依据（环境弹药实测表 + 三项候选）
     # A 级加固：离线测试 + CI + 打包 + 预注册（基础设施与规格，零 bench 语义）
     "tests/test_runtime_loop.py",   # runtime_loop 契约/RED-GREEN 离线测试
     "tests/test_call_guard.py",     # call_guard 畸形输入零崩溃测试
+    "tests/test_flip_rate.py",      # 脚本策略翻转率：确定性为 0、flaky 非 0、证据链
     "pyproject.toml",               # pytest 配置（testpaths=tests, pythonpath=tools）
     ".github/workflows/ci.yml",     # CI：pytest + A1-A3 门 + selftest
     "PREREG.md",                    # 预注册规格（H1-H3 假设/成功标准/边界）
@@ -72,7 +85,7 @@ CSV_HEADER = "trace_id,task_id,condition,run_id,flip_occurred,flip_type,evidence
 # Scope note: honesty & coupling prose scans cover the evidence-facing
 # surfaces only (README + docs + results). LICENSE (legal boilerplate),
 # PHASE_LOG.md (process record) and *.py (infrastructure) are out of scope.
-PROSE_SCOPE = ["README.md"] + sorted(
+PROSE_SCOPE = ["README.md", "FAILURE_MODES.md", "PREREG.md"] + sorted(
     str(p.relative_to(REPO)) for p in (REPO / "docs").glob("*.md")
 ) + ["results/README.md", "results/flip_rate_empty.csv"]
 COUPLING_TOKENS = ("evolve", "gsm8k", "rag_demo")
@@ -183,7 +196,7 @@ def main():
         encoding="utf-8").strip().splitlines()
     if len(rows) != 1 or not rows[0].startswith("trace_id,"):
         fail("A3 csv must hold header only (zero data rows)")
-    print("PASS [A3] zero coupling, no abs paths, header-only csv")
+    print("PASS [A3] zero coupling, no abs paths, empty-sentinel csv header-only")
 
     header = rows[0].strip()
     if header != CSV_HEADER:
@@ -202,7 +215,19 @@ def main():
                          f"{ln.strip()[:80]}")
     print("PASS [A3-honesty] no invented numbers in README/docs/results")
 
-    print("\nGATES A1-A3 PASS: pre-W1 empty repo honest")
+    # Populated flip-rate rows are allowed only when trace ids and evidence
+    # resolve, and only when the README block matches a fresh recomputation.
+    # The empty sentinel stays header-only inside commit_problems as well.
+    sys.path.insert(0, str(REPO / "tools"))
+    import compute_flip_rate
+    problems = compute_flip_rate.commit_problems()
+    if problems:
+        fail("A3-evidence " + "; ".join(problems))
+    print("PASS [A3-evidence] flip-rate rows have trace ids and evidence; "
+          "measured block matches recomputation")
+
+    print("\nGATES A1-A3 PASS: empty sentinel intact; "
+          "populated flip-rate is trace-linked")
 
 
 if __name__ == "__main__":
