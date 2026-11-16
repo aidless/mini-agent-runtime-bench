@@ -172,11 +172,13 @@ def r5_nonvacuity(golden):
 def r6_sandbox_isolation():
     """真实容器沙箱：加固项齐备 + 三项隔离实测（只读/断网/非特权）。
 
-    环境不可用时记为 SKIP（不伪装成 PASS，也不记 FAIL）。
+    环境或本地镜像不可用时记为 ``skip``（不伪装成 PASS，也不记 FAIL）。
+    本函数不拉取镜像。``REQUIRE_DOCKER=1`` 时由 main 把 skip 当成失败。
     """
-    if not ds.sandbox_available():
-        print("  [R6] 容器沙箱不可用 → SKIP（如实跳过，不计 PASS/FAIL）")
-        return True
+    reason = ds.docker_skip_reason()
+    if reason:
+        print(f"  SKIP [R6] reason: {reason}")
+        return "skip"
 
     argv = ds.build_argv("true")
     need = {"--network": "none", "--read-only": None, "--cap-drop": "ALL",
@@ -207,16 +209,11 @@ def r6_sandbox_isolation():
     for label, val, good in pts:
         print(f"       {'ok ' if good else 'BAD'} {label} = {val}"
               + (f"（缺: {missing}）" if label == '加固参数齐备' and missing else ""))
-    return ok
+    return "pass" if ok else "fail"
 
 
-def r7_plugin_chain():
-    """插件链：被拒步骤**不执行**、整链中止；放行步骤在真实沙箱内可读文件。"""
-    if not ds.sandbox_available():
-        print("  [R7] 容器沙箱不可用 → SKIP")
-        return True
-    import tempfile
-
+def _r7_stub_points():
+    """Plugin-chain checks that do not need a container."""
     pts = []
     # 1) 链在首个被拒步骤中止，且该步 executed=False
     steps = [{"tool": "read_file", "args": {"path": "sandbox/a.txt"}},
@@ -229,7 +226,15 @@ def r7_plugin_chain():
                   and sum(1 for t in res["trace"] if t["executed"]) == 1)
     pts.append(("被拒即中止且该步未执行", stopped_ok, stopped_ok))
 
-    # 2) 全放行的链应在真实沙箱里读到文件内容
+    return pts
+
+
+def _r7_container_point():
+    """The one R7 check that needs a local image. Never pulls."""
+    import tempfile
+
+    pts = []
+    # 全放行的链应在真实沙箱里读到文件内容
     with tempfile.TemporaryDirectory() as td:
         sub = os.path.join(td, "sandbox")
         os.makedirs(sub, exist_ok=True)
@@ -249,23 +254,52 @@ def r7_plugin_chain():
         pts.append(("放行步骤在真实容器内执行成功", real_ok, real_ok))
         if not real_ok:
             print(f"       调试: denied={ch['denied_rule']} results={ch['results']}")
+    return pts
 
-    # 3) 非空性：把只读步骤改成被禁工具，链必须不再完成
+
+def r7_plugin_chain():
+    """插件链：被拒步骤不执行；放行步骤在容器里可读文件。
+
+    Stub checks always run. The container step skips with a reason when the
+    daemon or the local image is missing. A skip is not a pass.
+    """
+    pts = _r7_stub_points()
+    # 非空性：把只读步骤改成被禁工具，链必须不再完成
     neg = pc.execute_chain([{"tool": "delete_file", "args": {"path": "hello.txt"}}])
     neg_ok = neg["completed"] is False
     pts.append(("非空性：违禁步骤使链失败", neg_ok, neg_ok))
-
-    ok = all(p[2] for p in pts)
-    print(f"  [R7] 插件链门控 + 真实执行  {'PASS' if ok else 'FAIL'}")
+    stub_ok = all(p[2] for p in pts)
     for label, val, good in pts:
         print(f"       {'ok ' if good else 'BAD'} {label} = {val}")
-    return ok
+    reason = ds.docker_skip_reason()
+    if reason:
+        print(f"  SKIP [R7-container] reason: {reason}")
+        if not stub_ok:
+            print("  [R7] stub chain checks FAIL")
+            return "fail"
+        print("  [R7] stub chain checks PASS; container step skipped")
+        return "skip"
+    container_pts = _r7_container_point()
+    pts.extend(container_pts)
+    for label, val, good in container_pts:
+        print(f"       {'ok ' if good else 'BAD'} {label} = {val}")
+    ok = stub_ok and all(p[2] for p in container_pts)
+    print(f"  [R7] 插件链门控 + 真实执行  {'PASS' if ok else 'FAIL'}")
+    return "pass" if ok else "fail"
+
+
+def _status(value):
+    if value is True or value == "pass":
+        return "pass"
+    if value is False or value == "fail":
+        return "fail"
+    return value
 
 
 def main():
     golden = load_golden(GOLDEN)
     print("C 线运行时门（P3-HARDEN）")
-    results = [
+    raw = [
         ("R1 安执拦截", r1_attacks(golden)),
         ("R2 零误拦", r2_safe(golden)),
         ("R3 零崩溃", r3_fuzz()),
@@ -274,13 +308,24 @@ def main():
         ("R6 容器隔离", r6_sandbox_isolation()),
         ("R7 插件链门控", r7_plugin_chain()),
     ]
+    results = [(name, _status(value)) for name, value in raw]
     print()
-    failed = [name for name, ok in results if not ok]
+    passed = [name for name, status in results if status == "pass"]
+    skipped = [name for name, status in results if status == "skip"]
+    failed = [name for name, status in results if status == "fail"]
+    print(
+        f"RUNTIME GATES: pass={len(passed)} skip={len(skipped)} fail={len(failed)}"
+    )
+    if skipped:
+        print("SKIP is not a pass. Container checks did not run: " + ", ".join(skipped))
     if failed:
-        print(f"RUNTIME GATES FAIL: {len(failed)} 门未过 → {failed}")
+        print(f"RUNTIME GATES FAIL: {failed}")
         return 1
-    print(f"RUNTIME GATES PASS: {len(results)} 门全过"
-          f"（含非空性反证，门可失败）")
+    if skipped and os.environ.get("REQUIRE_DOCKER") == "1":
+        print("REQUIRE_DOCKER=1: skip counts as failure")
+        return 1
+    if not skipped:
+        print("RUNTIME GATES PASS: container checks ran")
     return 0
 
 

@@ -53,8 +53,8 @@ rm -rf 且被记录"——审计时这两件事的法律含义完全不同。修
 
 1. **没有任务定义，没有完成率**。T01–T08 的 verdict 是"快照 digest 是否被改动"的
    自洽判定，`OK` 不代表任何任务成功，`CONTRACT_ABORT` 也不代表任何任务失败。
-2. **没有裁判、没有翻转率分子分母**。`results/flip_rate_empty.csv` 仍是仅表头——
-   这是 M2 定下的纪律，M3 没有打破它。
+2. **这 8 条轨迹仍然没有裁判、没有翻转率分子分母**。`results/flip_rate_empty.csv`
+   仍是仅表头。后来的脚本策略计数在另一份 `results/flip_rate.csv`，证据不是本文件。
 3. **沙箱仍是约定级**。T01–T03/T06/T08 的快照只读由 `_digest` 校验；
    `docker_sandbox.py` 的容器隔离能力在 `check_runtime_gates.py` R6 已被单独证明，
    但这 8 个 run 的执行**没有托管给容器**。

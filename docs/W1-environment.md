@@ -2,7 +2,7 @@
 
 > 本文档可独立评审。目标读者：未来的快照落盘者与门禁维护者。
 > 一句话定位：W1 只回答“测的是同一道题吗”——把任务文本与参考答案冻结为只读快照，其他一概不做。
-> 状态：pre-W1，全部取值 `TBD`，`trace_id: null`，`evidence: none`。
+> 状态：最小冻结集已落盘（`snapshots/w1/tasks.jsonl` + `manifest.json`）。外部题库与活取数仍是 `TBD` / 禁止。快照行的 `trace_id` 是冻结操作标识，不是模型运行。
 
 ## 目的与范围
 
@@ -27,6 +27,14 @@
 
 约束：`task_text` 与 `gold_answer` 只允许 COPY 纯文本；任何可执行引用（模块路径、导入语句、远程地址）在 schema 层面即为非法值，门禁有权据此判无效。
 
+## 已冻结的最小集
+
+`snapshots/w1/tasks.jsonl` 是手写微任务的 COPY，一行一个快照。`snapshots/w1/manifest.json` 记录整文件 sha256 与逐行 sha256。`make check` 用 `tools/scripted_policies.py` 里的任务表重算这两份文件，字节不一致即失败。
+
+每行带 `task_text`、`spec`、`gold_answer`、`source_ref`、`trace_id`（`freeze-w1`）和 `evidence`（指向 manifest）。`gold_answer` 必须等于对 `spec` 的确定性求值。题面是 `spec` 的规范渲染，供人审计；当前脚本策略不阅读题面。这不是外部榜单的拷贝，也不是智能体任务样本。
+
+未冻结、仍为 `TBD` 的部分：外部题库版本、活取数、以及任何需要解析自然语言才能作答的评测。
+
 ## 不变量 / 反作弊（anti-gaming）
 
 - **AG-W1-1 禁从 A 线 IMPORT**：快照只能 COPY 任务文本，不得以任何形式 IMPORT A 线模块（含 evolve / gsm8k / rag_demo 等实现，统统禁止）。<!-- allow-coupling --> 违反本条的快照视为被污染，门禁 A3 判 FAIL。
@@ -38,7 +46,7 @@
 
 - [ ] 字段表逐字段可回答“缺了它会失去什么”（评审人抽查任一字段，落盘者能说清后果）。
 - [ ] 四条反作弊条款逐条可判定：给定一条候选快照，能明确判合格 / 不合格并指出违反条款编号。
-- [ ] 空仓诚实性：本文档与任何示例中不出现真实题面、真实答案与任何测量数字，全部占位值保持 `TBD` / `null` / `none`。
+- [ ] 空仓诚实性：本文档不粘贴题面与答案，不写翻转率。题面与答案只在哈希过的快照文件里，来源说明是「本仓库手写」，不是外部榜。未做的部分保持 `TBD`。
 - [ ] 本文档变更后，`python tools/check_gates.py` 仍全 PASS（A2-pillars 子项覆盖字段表、反作弊、验收三要素的存在性）。
 
 ## 与其他支柱的关系

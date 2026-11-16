@@ -24,7 +24,13 @@
 import os
 import subprocess
 
-__all__ = ["DEFAULT_IMAGE", "run_in_sandbox", "sandbox_available"]
+__all__ = [
+    "DEFAULT_IMAGE",
+    "docker_skip_reason",
+    "local_image_present",
+    "run_in_sandbox",
+    "sandbox_available",
+]
 
 DEFAULT_IMAGE = "nvidia/cuda:12.6.0-base-ubuntu24.04"
 DEFAULT_TIMEOUT = 20
@@ -39,6 +45,38 @@ def sandbox_available():
         return p.returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
+
+
+def local_image_present(image=DEFAULT_IMAGE):
+    """True when the daemon is up and ``image`` is already local. Never pulls."""
+    if not sandbox_available():
+        return False
+    try:
+        p = subprocess.run(
+            ["docker", "image", "inspect", "--format", "{{.Id}}", image],
+            capture_output=True, text=True, timeout=10,
+        )
+        return p.returncode == 0 and bool((p.stdout or "").strip())
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def docker_skip_reason(image=DEFAULT_IMAGE):
+    """Why container gates cannot run, or None when they can.
+
+    Offline checks must not pull. A missing daemon or a missing local image
+    is a skip reason, not a pass.
+    """
+    if not sandbox_available():
+        return (
+            "docker daemon not available; offline check does not start a "
+            "daemon and does not pull"
+        )
+    if not local_image_present(image):
+        return (
+            f"local image {image} is not present; offline check does not pull"
+        )
+    return None
 
 
 def build_argv(command, workdir=None, image=DEFAULT_IMAGE, network=False,

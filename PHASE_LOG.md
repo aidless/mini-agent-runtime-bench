@@ -149,3 +149,14 @@
   （R6 容器隔离单独证明）。
 - 教训：**"拒绝"有三层来源**（序列层策略 / 契约层中止 / 日志不完备拒产），
   混在一张表里报告就是误导。这一层的账必须在写代码前分清，不是写完再解释。
+
+## SCRIPTED-FLIP：手写任务上的脚本策略翻转率（2026-11-16）
+
+- 动机：W3 只有空表，README 把仓库叫成基准但没有可复算的分子分母。本轮只关一条窄结果：冻结一小撮手写任务，用三个脚本策略演示翻转率管道对「再跑一次」敏不敏感。
+- 产出：`snapshots/w1/tasks.jsonl` 与 `manifest.json`（sha256）；`tools/scripted_policies.py`；`tools/compute_flip_rate.py`；`results/flip_rate.csv`、`flip_rate_summary.json`、`scripted_traces.jsonl`。`flip_rate_empty.csv` 仍仅表头。
+- 实测（`make check`，本机无 Docker 守护进程）：
+  - `compute_flip_rate.py --check` → `PASS flip-rate recomputed: correct 0/12, seed_perturbed 0/12, flaky 12/12`
+  - `check_runtime_gates.py` → `RUNTIME GATES: pass=5 skip=2 fail=0`，R6/R7 容器步骤 SKIP（不拉取镜像）。`REQUIRE_DOCKER=1` 时同一状态退出码为 1。
+  - 改 README measured 块里的分子后，`--check` 退出码为 1，并指出 measured block drifted。
+  - `run_offline_tests.py` → `PASS offline tests: 18 passed`
+- 没有做的事：没有调用 LLM；策略执行 `spec`，不读题面；阶段切换和独立裁判仍是 `TBD`；`w2_runs.jsonl` 不由 `make check` 重写；GitHub About 文案不在仓库里，无法用门禁改掉。

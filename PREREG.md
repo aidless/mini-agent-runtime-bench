@@ -5,10 +5,11 @@
 > （`docs/W1-environment.md`/`W2-runtime.md`/`W3-experience.md` 三支柱、
 > `tools/check_gates.py` 的 A1–A3、`tools/check_runtime_gates.py` 的 R1–R7、
 > `tools/runtime_loop.py` 的 `--selftest`、`results/w2_runs.jsonl` 的 8 条轨迹、
-> `results/flip_rate_empty.csv` 的仅表头），不含虚构数字或未实现能力。
+> `results/flip_rate_empty.csv` 的仅表头，以及 `results/flip_rate.csv` 的
+> 脚本策略计数），不含虚构数字或未实现能力。
 >
-> 定位：**规约仓 + 可执行基础设施雏形**，不是排行榜。零 bench 语义是**特性**，
-> 不是缺失。
+> 定位：**可复算的脚本策略翻转率管道 + 运行时门禁**，不是排行榜，也不是
+> LLM 智能体基准。空表哨兵仍然表示「尚无那张表的证据」，不是测得为零。
 
 ## 1. 研究问题
 
@@ -22,9 +23,10 @@
 - **H1（W2 契约可执行）**：`reset/step/done` 三接口 + 八字段轨迹已落成
   （`tools/runtime_loop.py`）；`--selftest` 四项反证全 PASS（确定性重放一致 /
   缺 latency_log 拒产 / 超步数中止 / reset 一次性）。
-- **H2（诚实空仓契约）**：每个未来指标落地前必须同时满足三项——值为 `TBD`、
-  链路 `trace_id: null`、证据 `evidence: none`；`results/flip_rate_empty.csv`
-  仅表头表示「尚无证据」，绝不表示「测得为零」。
+- **H2（诚实契约）**：没有 trace 的指标保持 `TBD`、`trace_id: null`、
+  `evidence: none`。`results/flip_rate_empty.csv` 仅表头，表示「尚无这张表的
+  证据」，绝不表示「测得为零」。`results/flip_rate.csv` 允许有行，但每行必须
+  有能回链的 trace id 和存在的证据文件，并且 README 的 measured 块与重算一致。
 - **H3（门禁 fail-closed）**：A1–A3（结构漂移/空仓诚实/耦合零容忍）与 R1–R7
   （危险调用拦截/合法放行/畸形语料零崩溃/确定性/非空性/真实容器隔离/插件链
   被拒即中止）全部通过才算门禁有效；任何一项 FAIL 即整体 FAIL，不伪装 PASS。
@@ -44,23 +46,25 @@
 1. `tools/check_gates.py`：A1–A3 八项全 PASS（本仓已实测）。
 2. `tools/runtime_loop.py --selftest`：四项反证全 PASS（本仓已实测）。
 3. `tools/w2_runs.py`：8 条轨迹落盘，含 3 条被拒绝/中止路径。
-4. `tests/`（本规格新增）：12 项离线测试全过——运行时闭环八字段、篡改检出、
-   超步数中止、reset 一次性、确定性重放、call-guard 解析（合法/空/非 JSON/
-   尾逗号/fence/垃圾永不外抛）。
-5. **边界如实**：`flip_rate_empty.csv` 保持仅表头；任务完成率、翻转率分子分母
-   仍 `TBD`（零 bench 语义是特性）。
+4. `tools/run_offline_tests.py` 退出码为零。条数以该命令打印的 PASS 行为准，
+   不在本文写死。覆盖运行时闭环、篡改检出、超步数中止、reset 一次性、确定性重放、
+   call-guard 畸形输入，以及脚本策略翻转率（确定性策略翻转数为零、按序号交替的
+   策略翻转数非零、缺 trace id 的计数行被拒绝）。
+5. **边界如实**：`flip_rate_empty.csv` 保持仅表头。脚本策略翻转率的分子分母
+   只来自重算，并且页面写明它不是 LLM 能力。三轴里的阶段切换与独立裁判仍是
+   `TBD`。
 
 ## 5. 明确边界（不证明什么）
 
-- **不证明任何 bench 数字**：不跑分、不产出任务完成率或模型排名；凡需测量的
-  值一律写 `TBD`。`w2_runs.jsonl` 的 8 条轨迹测**运行时行为**，不构成 agent
+- **不证明 LLM 能力或模型排名**。`w2_runs.jsonl` 的轨迹测运行时行为。
+  `flip_rate.csv` 测的是脚本函数在「再跑一次」下稳不稳，不构成 agent
   benchmark。
-- **不证明任务完成率/检索质量/agent 智能**：无裁判、无任务集，`OK` 只是
-  「快照未被改动」的自洽判定，**不是任务成功**；无任何 LLM 被调用。
-- **不证明容器隔离当前可通过**：R6/R7 需本机已有
-  `nvidia/cuda:12.6.0-base-ubuntu24.04` 镜像；本机 2026-11-01 实测
-  `docker pull` 超时、该镜像未拉取，故 R6/R7 **如实 FAIL**（fail-closed，
-  不伪装 PASS）——这是**环境缺镜像**，不是代码缺陷。
+- **不证明任务完成率来自阅读题面**：脚本策略执行 `spec`，不解析 `task_text`。
+  `w2_runs.jsonl` 里的 `OK` 只是「快照未被改动」。无任何 LLM 被调用。
+- **不证明容器隔离当前可通过**：R6 与 R7 的容器步骤需要本机已经有
+  `DEFAULT_IMAGE`（`nvidia/cuda:12.6.0-base-ubuntu24.04` <!-- allow-number -->）。
+  镜像不在本地时门禁打印 `SKIP` 和原因，不拉取、不伪装 `PASS`。
+  `REQUIRE_DOCKER=1` 才把跳过当成失败。
 - **不证明免于耦合**：A3 强制零耦合（禁 IMPORT A 线模块、无跨仓绝对路径），
   但它是机器检查，不是人类评审。
 
@@ -68,9 +72,10 @@
 
 - 复现：
   ```bash
-  python tools/check_gates.py            # A1-A3 八项，应全 PASS
-  python tools/check_runtime_gates.py    # R1-R7（R6/R7 需本机已有 DEFAULT_IMAGE 镜像）
-  python tools/runtime_loop.py --selftest  # 四项反证
-  python tools/w2_runs.py                # 8 条轨迹 → results/w2_runs.jsonl
-  python -m pytest tests/ -q             # 12 项离线测试
+  make check                                 # 重算翻转率；容器门可 SKIP
+  python tools/check_gates.py            # A1-A3，含证据链
+  python tools/check_runtime_gates.py    # R1-R5 必跑；R6/R7 容器步骤可 SKIP
+  python tools/runtime_loop.py --selftest
+  python tools/compute_flip_rate.py --check
+  python tools/run_offline_tests.py
   ```

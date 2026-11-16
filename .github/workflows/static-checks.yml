@@ -50,6 +50,8 @@ jobs:
               print("SYNTAX", b)
           sys.exit(1 if bad else 0)
           PY
+      - name: Recompute flip-rate and offline gates
+        run: make check
       - name: Validate JSON artefacts
         run: |
           python - <<'PY'
